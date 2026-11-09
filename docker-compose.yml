@@ -1,0 +1,10 @@
+# Lokales Jaeger zum Ansehen der Traces.
+#   docker compose up -d      danach http://localhost:16686
+# Die Ports sind nur an 127.0.0.1 gebunden. Die Daten liegen im Speicher
+# und sind nach dem Stoppen weg.
+services:
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.23.0
+    ports:
+      - "127.0.0.1:16686:16686" # Jaeger UI
+      - "127.0.0.1:4318:4318" # OTLP über HTTP
