@@ -10,6 +10,7 @@ import {
   type FileId,
   type ScenarioId,
 } from "../demo/src/scenarios.js";
+import { formatJson, wireFor } from "../demo/src/wire.js";
 import { loadMatrix } from "../src/authz/policy.js";
 
 const ids: ScenarioId[] = ["allowed", "foreign-case", "third-level", "injection", "no-case"];
@@ -99,5 +100,59 @@ describe("Trace-Export", () => {
     const text = JSON.stringify(otlp);
     expect(text).not.toMatch(/SUP-2026-/);
     expect(text).toContain("app.demo.simulated");
+  });
+});
+
+describe("Nachrichten zwischen den Agenten", () => {
+  const wires = (id: ScenarioId, wrapper: boolean) => {
+    const run = buildRun(id, wrapper);
+    return run.steps.flatMap((step) => {
+      const wire = wireFor(run, step);
+      return wire ? [{ step, wire, text: JSON.stringify(wire.body) }] : [];
+    });
+  };
+
+  it.each(ids)("%s: jeder Sende-Schritt zwischen Agenten hat eine Nachricht", (id) => {
+    for (const wrapper of [true, false]) {
+      const run = buildRun(id, wrapper);
+      for (const step of run.steps) {
+        if (step.kind === "send") expect(wireFor(run, step), step.text).toBeDefined();
+      }
+      // Der traceparent verweist immer auf einen Span, den es im Lauf gibt.
+      const keys = new Set(run.spans.map((s) => s.key));
+      for (const { wire } of wires(id, wrapper)) {
+        if (wire.traceSpan) expect(keys).toContain(wire.traceSpan);
+      }
+    }
+  });
+
+  it("gibt den Aufrufkontext zwischen Agenten nur mit Wrapper mit", () => {
+    const call = (wrapper: boolean) =>
+      wires("allowed", wrapper).find((w) => w.wire.from === "supportagent" && w.wire.kind === "request")!;
+    expect(call(true).text).toContain("callContext");
+    expect(call(true).wire.traceSpan).toBe("call");
+    expect(call(false).text).not.toContain("callContext");
+    expect(call(false).wire.traceSpan).toBeUndefined();
+  });
+
+  it("zeigt bei fremder Fall-ID mit Wrapper eine Ablehnung, ohne Wrapper das fremde Dokument", () => {
+    const answer = (wrapper: boolean) =>
+      wires("foreign-case", wrapper).find((w) => w.wire.from === "dokumentenagent")!.text;
+    expect(answer(true)).toContain("case_mismatch");
+    expect(answer(true)).not.toContain("doc-0099");
+    expect(answer(false)).toContain("doc-0099");
+  });
+
+  it("gibt das Dokument mit der Anweisung nie ans Modell", () => {
+    for (const wrapper of [true, false]) {
+      const prompt = wires("injection", wrapper).find((w) => w.wire.kind === "prompt")!.text;
+      expect(prompt).toContain("Störungsmeldung");
+      expect(prompt).not.toMatch(/ANWEISUNG|Anhang des Einsenders/);
+    }
+  });
+
+  it("formatiert JSON so, dass es wieder lesbar ist", () => {
+    const value = { a: [1, 2], long: { text: "x".repeat(80), nested: { ok: true } } };
+    expect(JSON.parse(formatJson(value))).toEqual(value);
   });
 });

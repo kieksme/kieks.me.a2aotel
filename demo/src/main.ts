@@ -9,7 +9,7 @@ import {
   t,
   type MessageKey,
 } from "./i18n";
-import { createMotion } from "./motion";
+import { createMotion, reducedMotion } from "./motion";
 import { toOtlpJson } from "./otlp";
 import {
   buildRun,
@@ -25,6 +25,7 @@ import {
   type TraceSpan,
 } from "./scenarios";
 import { createTraceView } from "./trace";
+import { formatJson, wireFor, type Party, type Wire } from "./wire";
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 
@@ -57,7 +58,8 @@ function renderMessages() {
   messages.innerHTML = scenarioList
     .map(
       (s) => `
-    <button type="button" class="message" data-scenario="${s.id}" aria-pressed="${s.id === scenario}">
+    <button type="button" class="message" data-scenario="${s.id}" aria-pressed="${s.id === scenario}"
+      title="${t(s.hint)}">
       <span class="message-title" data-selected-label="${t("message.selected")}">${t(s.title)}</span>
       <span class="message-text">${t(s.message)}</span>
       <span class="message-hint">${t(s.hint)}</span>
@@ -119,6 +121,23 @@ function openCode(file: FileId, region?: string) {
 $("#replay").addEventListener("click", () => play());
 
 const stepsList = $("#steps");
+const stepsStatus = $("#steps-status");
+
+// Ob der Ablauf auf- oder zugeklappt ist, merkt sich der Browser.
+const stepsPanel = $<HTMLDetailsElement>("#steps-panel");
+const STEPS_OPEN_KEY = "a2aotel-steps-open";
+try {
+  if (localStorage.getItem(STEPS_OPEN_KEY) === "false") stepsPanel.open = false;
+} catch {
+  // Ohne Speicher bleibt der Ablauf aufgeklappt.
+}
+stepsPanel.addEventListener("toggle", () => {
+  try {
+    localStorage.setItem(STEPS_OPEN_KEY, String(stepsPanel.open));
+  } catch {
+    // Die Wahl gilt dann nur für diesen Besuch.
+  }
+});
 const outcome = $("#outcome");
 const download = $<HTMLButtonElement>("#download");
 
@@ -140,20 +159,34 @@ async function play() {
   download.disabled = true;
   outcome.innerHTML = "";
   outcome.className = "outcome";
+  stepsStatus.textContent = "";
   $("#auditor").innerHTML = `<p class="muted">${t("auditor.pending")}</p>`;
+  showWire(null);
   stepsList.innerHTML = run.steps
-    .map((step, index) => `<li data-step="${index}" data-state="todo">${t(step.text)}</li>`)
+    .map((step, index) => {
+      // Schritte mit einer Nachricht bekommen einen Knopf, um sie später wieder anzusehen.
+      const button = wireFor(run, step)
+        ? ` <button type="button" class="step-wire" data-wire="${index}" aria-pressed="false" aria-label="${t("wire.show")}" title="${t("wire.show")}">✉</button>`
+        : "";
+      return `<li data-step="${index}" data-state="todo"><span>${t(step.text)}${button}</span></li>`;
+    })
     .join("");
 
   for (const [index, step] of run.steps.entries()) {
     const item = stepsList.querySelector<HTMLLIElement>(`[data-step="${index}"]`)!;
     item.dataset.state = "active";
     item.setAttribute("aria-current", "step");
-    // Nur die Liste scrollen, nicht die ganze Seite.
-    stepsList.scrollTo({ top: Math.max(0, item.offsetTop - stepsList.offsetTop - 60) });
+    // Die Liste scrollt automatisch mit: Der aktive Schritt steht in der Mitte.
+    // Es scrollt nur die Liste, nicht die ganze Seite.
+    stepsList.scrollTo({
+      top: Math.max(0, item.offsetTop - (stepsList.clientHeight - item.clientHeight) / 2),
+      behavior: reducedMotion() ? "auto" : "smooth",
+    });
+    stepsStatus.innerHTML = `${t("steps.progress", { n: index + 1, total: run.steps.length })} · ${t(step.text)}`;
     step.reveal?.forEach((key) => traceView.setState(key, "pending"));
     // Im Code-Modus wird die Stelle markiert, die gerade ausgeführt wird.
     if (step.code) void code.show(step.code.file, step.code.region, step.text);
+    if (wireFor(run, step)) showWire(index);
 
     await flow.playStep(step);
     if (mine !== generation) return;
@@ -170,8 +203,79 @@ async function play() {
   download.disabled = !trace;
   outcome.className = `outcome is-${run.outcome.kind}`;
   outcome.innerHTML = `<strong>${t(run.outcome.title)}</strong> ${t(run.outcome.text)}`;
+  stepsStatus.innerHTML = `<span class="badge is-${run.outcome.kind}">${t(run.outcome.title)}</span> ${t(run.outcome.text)}`;
   renderAuditor();
 }
+
+// --- Nachricht unterwegs ---------------------------------------------------
+
+const PARTY_LABEL: Record<Party, MessageKey> = {
+  sachbearbeitung: "node.sachbearbeitung",
+  supportagent: "svc.supportagent",
+  dokumentenagent: "svc.dokumentenagent",
+  "dokumenten-api": "svc.api",
+  model: "node.model",
+};
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
+
+function wireBody(wire: Wire): string {
+  if (wire.kind === "prompt") {
+    const { system, prompt } = wire.body as { system: string; prompt: string };
+    return `system:\n${system}\n\nprompt:\n${prompt}`;
+  }
+  if (wire.kind === "request") {
+    // Aufbau wie im echten Beispiel: Anfrage in parts[0].data,
+    // Aufrufkontext in metadata.callContext.
+    const message = wire.body as {
+      parts: { data: unknown }[];
+      metadata?: { callContext: unknown };
+    };
+    const context = message.metadata
+      ? formatJson(message.metadata.callContext)
+      : `(${t("wire.noContext")})`;
+    return `parts[0].data\n${formatJson(message.parts[0]!.data)}\n\nmetadata.callContext\n${context}`;
+  }
+  return formatJson(wire.body);
+}
+
+/** Zeigt die Nachricht eines Schritts in der Grafik. null leert die Anzeige. */
+function showWire(index: number | null) {
+  const box = $("#wire");
+  const body = $("#wire-body");
+  const step = index === null ? undefined : run.steps[index];
+  const wire = step ? wireFor(run, step) : undefined;
+  stepsList.querySelectorAll<HTMLButtonElement>(".step-wire").forEach((button) => {
+    button.setAttribute("aria-pressed", String(Number(button.dataset.wire) === index && !!wire));
+  });
+  if (!wire) {
+    box.classList.remove("is-denied");
+    body.innerHTML = `<p class="muted">${t("wire.empty")}</p>`;
+    return;
+  }
+
+  // Der traceparent-Header trägt Trace-ID und Span-ID des Aufrufers.
+  const spanId = trace?.spans.find((span) => span.key === wire.traceSpan)?.spanId;
+  const header =
+    wire.kind !== "request" || wire.from === "sachbearbeitung"
+      ? ""
+      : spanId && trace
+        ? `<p class="wire-header">traceparent: 00-${trace.traceId}-${spanId}-01</p>`
+        : `<p class="wire-header">(${t("wire.noTraceparent")})</p>`;
+  const status = (wire.body as { status?: string }).status;
+  box.classList.toggle("is-denied", status === "denied");
+  body.innerHTML = `
+    <p class="wire-route">${t(PARTY_LABEL[wire.from])} → ${t(PARTY_LABEL[wire.to])}
+      <span class="wire-kind">· ${t(`wire.${wire.kind}`)}</span></p>
+    ${header}
+    <pre tabindex="0">${escapeHtml(wireBody(wire))}</pre>`;
+}
+
+stepsList.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".step-wire");
+  if (button) showWire(Number(button.dataset.wire));
+});
 
 // --- Verknüpfung von Trace und Flow ----------------------------------------
 
