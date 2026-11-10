@@ -6,6 +6,7 @@ import wrapperSource from "../../src/telemetry/wrapper.ts?raw";
 import setupSource from "../../src/telemetry/setup.ts?raw";
 import policySource from "../../src/authz/policy.ts?raw";
 import matrixSource from "../../src/authz/matrix.json?raw";
+import { t, type MessageKey } from "./i18n";
 import { isMarkerLine, parseRegions, type Region } from "./regions";
 import { reducedMotion } from "./motion";
 import { FILE_PATHS, type FileId } from "./scenarios";
@@ -13,10 +14,10 @@ import { FILE_PATHS, type FileId } from "./scenarios";
 export const REPO_URL = "https://github.com/kieksme/kieks.me.a2aotel";
 
 interface SourceFile {
-  label: string;
+  label: MessageKey;
   lang: "typescript" | "json";
   source: string;
-  about: string;
+  about: MessageKey;
 }
 
 /**
@@ -25,40 +26,40 @@ interface SourceFile {
  */
 export const FILES: Record<FileId, SourceFile> = {
   supportagent: {
-    label: "Supportagent",
+    label: "svc.supportagent",
     lang: "typescript",
     source: supportagentSource,
-    about: "Agentendefinition und Agent Card. Enthält keine Berechtigungsprüfung.",
+    about: "file.agent.about",
   },
   dokumentenagent: {
-    label: "Dokumentenagent",
+    label: "svc.dokumentenagent",
     lang: "typescript",
     source: dokumentenagentSource,
-    about: "Agentendefinition und Agent Card. Enthält keine Berechtigungsprüfung.",
+    about: "file.agent.about",
   },
   wrapper: {
-    label: "Wrapper",
+    label: "wrapper.label",
     lang: "typescript",
     source: wrapperSource,
-    about: "Legt Trace-Kontext, Berechtigungsprüfung und Span um jeden Agenten.",
+    about: "file.wrapper.about",
   },
   policy: {
-    label: "Berechtigungsprüfung",
+    label: "file.policy",
     lang: "typescript",
     source: policySource,
-    about: "Prüft jeden Aufruf. Standard ist ablehnen.",
+    about: "file.policy.about",
   },
   matrix: {
-    label: "Matrix",
+    label: "file.matrix",
     lang: "json",
     source: matrixSource,
-    about: "Wer darf bei wem was. Konfiguration mit Regelversion, kein Code.",
+    about: "file.matrix.about",
   },
   setup: {
-    label: "Tracing-Setup",
+    label: "file.setup",
     lang: "typescript",
     source: setupSource,
-    about: "Tracer pro Dienst und Auswahl des Exporters.",
+    about: "file.setup.about",
   },
 };
 
@@ -107,36 +108,65 @@ export async function renderCode(target: HTMLElement, source: string, lang: "typ
 
 export function createCodeView(host: HTMLElement) {
   const ids = Object.keys(FILES) as FileId[];
-  host.innerHTML = `
-    <div class="file-tabs" role="tablist" aria-label="Dateien">
-      ${ids
-        .map(
-          (id) =>
-            `<button type="button" role="tab" id="file-tab-${id}" aria-controls="code-panel" aria-selected="false" tabindex="-1" data-file="${id}">${FILES[id].label}</button>`,
-        )
-        .join("")}
-    </div>
-    <div class="code-panel" id="code-panel" role="tabpanel">
-      <div class="code-meta">
-        <div>
-          <code class="code-path"></code>
-          <p class="code-about muted"></p>
-        </div>
-        <a class="code-link" target="_blank" rel="noopener">Datei auf GitHub</a>
-      </div>
-      <p class="code-active" aria-live="polite" hidden></p>
-      <pre class="code-scroll shiki" tabindex="0" aria-label="Quelltext"></pre>
-    </div>`;
-
-  const tabs = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-  const panel = host.querySelector<HTMLElement>(".code-panel")!;
-  const pre = host.querySelector<HTMLPreElement>(".code-scroll")!;
-  const link = host.querySelector<HTMLAnchorElement>(".code-link")!;
-  const active = host.querySelector<HTMLElement>(".code-active")!;
   const regions = new Map(ids.map((id) => [id, parseRegions(FILES[id].source)]));
 
+  let tabs: HTMLButtonElement[] = [];
+  let panel!: HTMLElement;
+  let pre!: HTMLPreElement;
+  let link!: HTMLAnchorElement;
+  let active!: HTMLElement;
+
   let current: FileId | null = null;
+  let shown: { file: FileId; region?: string; note?: MessageKey } = { file: "wrapper" };
   let token = 0;
+
+  /** Baut Reiter und Rahmen auf. Wird beim Sprachwechsel erneut aufgerufen. */
+  function mount() {
+    host.innerHTML = `
+      <div class="file-tabs" role="tablist" aria-label="${t("code.files")}">
+        ${ids
+          .map(
+            (id) =>
+              `<button type="button" role="tab" id="file-tab-${id}" aria-controls="code-panel" aria-selected="false" tabindex="-1" data-file="${id}">${t(FILES[id].label)}</button>`,
+          )
+          .join("")}
+      </div>
+      <div class="code-panel" id="code-panel" role="tabpanel">
+        <div class="code-meta">
+          <div>
+            <code class="code-path"></code>
+            <p class="code-about muted"></p>
+          </div>
+          <a class="code-link" target="_blank" rel="noopener"></a>
+        </div>
+        <p class="code-active" aria-live="polite" hidden></p>
+        <p class="hint code-note" hidden></p>
+        <pre class="code-scroll shiki" tabindex="0" aria-label="${t("code.source")}"></pre>
+      </div>`;
+
+    tabs = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    panel = host.querySelector<HTMLElement>(".code-panel")!;
+    pre = host.querySelector<HTMLPreElement>(".code-scroll")!;
+    link = host.querySelector<HTMLAnchorElement>(".code-link")!;
+    active = host.querySelector<HTMLElement>(".code-active")!;
+    current = null;
+
+    const note = host.querySelector<HTMLElement>(".code-note")!;
+    note.textContent = t("code.commentsNote");
+    note.hidden = !note.textContent;
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => show(tab.dataset.file as FileId));
+      tab.addEventListener("keydown", (event) => {
+        const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        const next = tabs[(index + step + tabs.length) % tabs.length]!;
+        next.focus();
+        show(next.dataset.file as FileId);
+      });
+    });
+  }
 
   function mark(region: Region | undefined) {
     pre.querySelectorAll(".active-line").forEach((el) => el.classList.remove("active-line"));
@@ -157,8 +187,9 @@ export function createCodeView(host: HTMLElement) {
   }
 
   /** Zeigt eine Datei und markiert optional einen Bereich darin. */
-  async function show(file: FileId, regionName?: string, note?: string) {
+  async function show(file: FileId, regionName?: string, note?: MessageKey) {
     const mine = ++token;
+    shown = { file, region: regionName, note };
     const info = FILES[file];
     const region = regionName ? regions.get(file)?.get(regionName) : undefined;
 
@@ -169,11 +200,11 @@ export function createCodeView(host: HTMLElement) {
     });
     panel.setAttribute("aria-labelledby", `file-tab-${file}`);
     host.querySelector(".code-path")!.textContent = FILE_PATHS[file];
-    host.querySelector(".code-about")!.textContent = info.about;
+    host.querySelector(".code-about")!.textContent = t(info.about);
     link.href = `${REPO_URL}/blob/main/${FILE_PATHS[file]}${region ? `#L${region.start}-L${region.end}` : ""}`;
-    link.textContent = region ? "Diese Stelle auf GitHub" : "Datei auf GitHub";
+    link.textContent = t(region ? "code.linkRegion" : "code.linkFile");
     active.hidden = !note;
-    active.textContent = note ? `Aktiver Schritt: ${note}` : "";
+    active.textContent = note ? t("code.active", { text: t(note) }) : "";
 
     if (current !== file) {
       current = file;
@@ -183,17 +214,13 @@ export function createCodeView(host: HTMLElement) {
     mark(region);
   }
 
-  tabs.forEach((tab, index) => {
-    tab.addEventListener("click", () => show(tab.dataset.file as FileId));
-    tab.addEventListener("keydown", (event) => {
-      const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-      if (!step) return;
-      event.preventDefault();
-      const next = tabs[(index + step + tabs.length) % tabs.length]!;
-      next.focus();
-      show(next.dataset.file as FileId);
-    });
-  });
-
-  return { show };
+  mount();
+  return {
+    show,
+    /** Nach einem Sprachwechsel: neu aufbauen und dieselbe Stelle wieder zeigen. */
+    remount() {
+      mount();
+      return show(shown.file, shown.region, shown.note);
+    },
+  };
 }

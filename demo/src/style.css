@@ -19,7 +19,7 @@
   --svc-dokumentenagent: #0b757d;
   --svc-dokumenten-api: #8546b8;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --radius: 12px;
 }
 
@@ -140,12 +140,34 @@ main,
 .site-header {
   padding: 2.2rem 0 1.2rem;
 }
+.header-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.4rem;
+}
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.lang-switch select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+}
 .eyebrow {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
-  margin-bottom: 0.4rem;
 }
 .lead {
   max-width: 62ch;
@@ -260,7 +282,7 @@ main {
   color: var(--muted);
 }
 .message[aria-pressed="true"] .message-title::after {
-  content: " · gewählt";
+  content: " · " attr(data-selected-label);
 }
 .message-text {
   font-weight: 600;
@@ -1143,4 +1165,8 @@ dialog::backdrop {
     animation: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+.outcome strong {
+  display: block;
 }
