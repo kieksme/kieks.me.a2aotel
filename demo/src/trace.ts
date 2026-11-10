@@ -1,4 +1,5 @@
 import { animate } from "animejs";
+import { t } from "./i18n";
 import { reducedMotion } from "./motion";
 import { SERVICE_LABEL, type Trace, type TraceSpan } from "./scenarios";
 
@@ -33,23 +34,23 @@ function detailsMarkup(span: TraceSpan): string {
   const events = span.events.length
     ? `<ul class="event-list">${span.events
         .map(
-          (event) => `<li><strong>${escapeHtml(event.name)}</strong> <span class="muted">bei +${event.at} ms</span>
+          (event) => `<li><strong>${escapeHtml(event.name)}</strong> <span class="muted">${t("span.eventAt", { ms: event.at })}</span>
             <table class="attr-table"><tbody>${attributeRows(event.attributes)}</tbody></table></li>`,
         )
         .join("")}</ul>`
-    : `<p class="muted">Keine Events.</p>`;
+    : `<p class="muted">${t("span.noEvents")}</p>`;
   return `
     <dl class="span-meta">
-      <div><dt>Span-ID</dt><dd><code>${span.spanId}</code></dd></div>
-      <div><dt>Eltern-Span-ID</dt><dd>${span.parentSpanId ? `<code>${span.parentSpanId}</code>` : "keine (Wurzel)"}</dd></div>
-      <div><dt>Start</dt><dd>+${span.start} ms</dd></div>
-      <div><dt>Dauer</dt><dd>${span.end - span.start} ms</dd></div>
-      <div><dt>Dienst</dt><dd>${SERVICE_LABEL[span.service]}</dd></div>
-      <div><dt>Art</dt><dd>${span.kind}</dd></div>
+      <div><dt>${t("span.id")}</dt><dd><code>${span.spanId}</code></dd></div>
+      <div><dt>${t("span.parent")}</dt><dd>${span.parentSpanId ? `<code>${span.parentSpanId}</code>` : t("span.root")}</dd></div>
+      <div><dt>${t("span.start")}</dt><dd>+${span.start} ms</dd></div>
+      <div><dt>${t("span.duration")}</dt><dd>${span.end - span.start} ms</dd></div>
+      <div><dt>${t("span.service")}</dt><dd>${t(SERVICE_LABEL[span.service])}</dd></div>
+      <div><dt>${t("span.kind")}</dt><dd>${span.kind}</dd></div>
     </dl>
-    <h4>Attribute</h4>
+    <h4>${t("span.attributes")}</h4>
     <table class="attr-table"><tbody>${attributeRows(span.attributes)}</tbody></table>
-    <h4>Events</h4>
+    <h4>${t("span.events")}</h4>
     ${events}`;
 }
 
@@ -102,7 +103,7 @@ export function createTraceView(
         <button type="button" class="span-head" aria-expanded="false" aria-controls="${detailsId}">
           <span class="span-label" style="--depth:${depth}">
             <span class="link-mark" aria-hidden="true">◆</span>
-            <span class="svc-name">${SERVICE_LABEL[span.service]}</span>
+            <span class="svc-name">${t(SERVICE_LABEL[span.service])}</span>
             <span class="span-name">${escapeHtml(span.name)}</span>
           </span>
           <span class="span-track"><span class="span-bar" style="left:${left}%;width:${width}%"></span></span>
@@ -120,9 +121,9 @@ export function createTraceView(
     const visible = trace.spans.filter((s) => states.has(s.key));
     const duration = Math.max(0, ...visible.map((s) => s.end));
     summary.innerHTML = `
-      <span><span class="muted">Trace-ID</span> <code>${trace.traceId}</code></span>
-      <span><span class="muted">Dauer</span> <strong>${duration} ms</strong></span>
-      <span><span class="muted">Spans</span> <strong>${visible.length}</strong></span>`;
+      <span><span class="muted">${t("trace.id")}</span> <code>${trace.traceId}</code></span>
+      <span><span class="muted">${t("trace.duration")}</span> <strong>${duration} ms</strong></span>
+      <span><span class="muted">${t("trace.spans")}</span> <strong>${visible.length}</strong></span>`;
   }
 
   /** Zeigt einen Span an. Solange die Entscheidung offen ist, bleibt er neutral. */
@@ -136,9 +137,9 @@ export function createTraceView(
     const decision = state === "final" ? (span.decision ?? "neutral") : "pending";
     li.dataset.state = decision;
     li.querySelector(".span-state")!.textContent = {
-      pending: "läuft",
-      allowed: "✓ erlaubt",
-      denied: "✗ verweigert",
+      pending: t("trace.running"),
+      allowed: t("decision.allowed"),
+      denied: t("decision.denied"),
       neutral: "",
     }[decision];
     if (first && !reducedMotion()) {
@@ -171,7 +172,7 @@ export function createTraceView(
       const linked = keys.has(li.dataset.key!);
       li.classList.toggle("is-linked", linked);
       const name = li.querySelector(".span-name")!;
-      name.setAttribute("aria-description", linked ? "gehört zur Auswahl im Ablauf" : "");
+      name.setAttribute("aria-description", linked ? t("trace.linked") : "");
     });
   }
 

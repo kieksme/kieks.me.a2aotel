@@ -11,72 +11,67 @@
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <a class="skip-link" href="#main">Zum Inhalt springen</a>
+    <a class="skip-link" href="#main" data-i18n="skip">Zum Inhalt springen</a>
 
     <header class="site-header">
-      <p class="eyebrow">kieks.me · Beispielprojekt</p>
-      <h1>Rechte verhindern, Tracing belegt</h1>
-      <p class="lead">
-        Zwei KI-Agenten rufen sich gegenseitig auf. Ein Wrapper prüft jeden Aufruf und schreibt die
-        Entscheidung in einen OpenTelemetry-Trace.
-      </p>
+      <div class="header-row">
+        <p class="eyebrow" data-i18n="hero.eyebrow">kieks.me · Beispielprojekt</p>
+        <label class="lang-switch">
+          <span data-i18n="lang.label">Sprache</span>
+          <select id="lang-select"></select>
+        </label>
+      </div>
+      <h1 data-i18n="hero.title">Rechte verhindern, Tracing belegt</h1>
+      <p class="lead" data-i18n="hero.lead"></p>
     </header>
 
-    <aside class="sim-banner" role="note" aria-label="Hinweis zur Simulation">
-      <span class="sim-badge">Simulation</span>
+    <aside class="sim-banner" role="note" data-i18n-aria="sim.aria">
+      <span class="sim-badge" data-i18n="sim.badge">Simulation</span>
       <p>
-        Hier laufen <strong>keine echten Agenten</strong>. Abläufe und Traces sind gemockt, es gibt
-        kein Backend und kein Modell. Der gezeigte Code ist echt und stammt aus dem Repository.
-        <a href="https://github.com/kieksme/kieks.me.a2aotel">Das lauffähige Beispiel auf GitHub</a>
+        <span data-i18n="sim.text"></span>
+        <a href="https://github.com/kieksme/kieks.me.a2aotel" data-i18n="sim.link"></a>
       </p>
     </aside>
 
     <main id="main">
       <section class="panel controls" aria-labelledby="controls-title">
-        <h2 id="controls-title">1. Nachricht an den Supportagenten schicken</h2>
+        <h2 id="controls-title" data-i18n="controls.title"></h2>
         <div class="messages" id="messages"></div>
 
         <div class="toolbar">
           <button type="button" class="switch" id="wrapper-switch" role="switch" aria-checked="true">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
             <span>
-              <strong>Wrapper</strong>
-              <span class="switch-state" id="wrapper-state">an: Berechtigungsprüfung und Tracing aktiv</span>
+              <strong data-i18n="wrapper.label">Wrapper</strong>
+              <span class="switch-state" id="wrapper-state"></span>
             </span>
           </button>
 
-          <div class="view-tabs" role="tablist" aria-label="Ansicht">
-            <button type="button" role="tab" id="tab-visual" aria-controls="panel-visual" aria-selected="true">
-              Visualisierung
-            </button>
-            <button type="button" role="tab" id="tab-code" aria-controls="panel-code" aria-selected="false" tabindex="-1">
-              Code
-            </button>
+          <div class="view-tabs" role="tablist" data-i18n-aria="view.aria">
+            <button type="button" role="tab" id="tab-visual" aria-controls="panel-visual" aria-selected="true" data-i18n="view.visual"></button>
+            <button type="button" role="tab" id="tab-code" aria-controls="panel-code" aria-selected="false" tabindex="-1" data-i18n="view.code"></button>
           </div>
 
-          <button type="button" class="button" id="replay">Nochmal abspielen</button>
+          <button type="button" class="button" id="replay" data-i18n="replay"></button>
         </div>
       </section>
 
       <div class="stage">
         <section class="panel" id="panel-visual" role="tabpanel" aria-labelledby="tab-visual">
-          <h2 class="visually-hidden">Ablauf als Grafik</h2>
-          <div class="flow-scroll" tabindex="0" role="region" aria-label="Ablaufgrafik, seitlich scrollbar"><div id="flow"></div></div>
-          <p class="hint scroll-hint">Die Grafik lässt sich seitlich scrollen.</p>
-          <p class="hint">
-            Agenten, Datenquelle und Pfeile sind anklickbar. Die zugehörigen Spans werden im Trace
-            markiert.
-          </p>
+          <h2 class="visually-hidden" data-i18n="visual.heading"></h2>
+          <div class="flow-scroll" tabindex="0" role="region" data-i18n-aria="flow.scrollAria"><div id="flow"></div></div>
+          <p class="hint scroll-hint" data-i18n="flow.scrollHint"></p>
+          <p class="hint" data-i18n="flow.hint"></p>
           <div class="inspector" id="inspector" aria-live="polite"></div>
         </section>
 
         <section class="panel" id="panel-code" role="tabpanel" aria-labelledby="tab-code" hidden>
-          <h2 class="visually-hidden">Code</h2>
+          <h2 class="visually-hidden" data-i18n="view.code"></h2>
           <div id="code"></div>
         </section>
 
         <section class="panel steps-panel" aria-labelledby="steps-title">
-          <h2 id="steps-title">Ablauf</h2>
+          <h2 id="steps-title" data-i18n="steps.title"></h2>
           <ol class="steps" id="steps" aria-live="polite"></ol>
           <div class="outcome" id="outcome" role="status"></div>
         </section>
@@ -84,52 +79,47 @@
 
       <section class="panel" aria-labelledby="trace-title">
         <div class="panel-head">
-          <h2 id="trace-title">2. Trace ansehen <span class="mock-tag">gemockt</span></h2>
-          <button type="button" class="button" id="download">Trace als JSON herunterladen</button>
+          <h2 id="trace-title"><span data-i18n="trace.title"></span> <span class="mock-tag" data-i18n="trace.mock"></span></h2>
+          <button type="button" class="button" id="download" data-i18n="trace.download"></button>
         </div>
-        <p class="hint">
-          Ein Klick auf einen Span klappt die Details auf und hebt den zugehörigen Teil im Ablauf
-          hervor. Mit den Pfeiltasten geht es von Span zu Span.
-        </p>
+        <p class="hint" data-i18n="trace.hint"></p>
         <div id="trace"></div>
       </section>
 
       <section class="panel auditor" aria-labelledby="auditor-title">
-        <h2 id="auditor-title">3. Was ein Auditor daraus abliest</h2>
+        <h2 id="auditor-title" data-i18n="auditor.title"></h2>
         <div id="auditor"></div>
       </section>
 
       <section class="panel" aria-labelledby="compare-title">
         <div class="panel-head">
-          <h2 id="compare-title">Vergleich: dieselbe Anfrage mit und ohne Fallbezug</h2>
-          <button type="button" class="button" id="compare-play">Vergleich abspielen</button>
+          <h2 id="compare-title" data-i18n="compare.title"></h2>
+          <button type="button" class="button" id="compare-play" data-i18n="compare.play"></button>
         </div>
-        <p class="hint">
-          Beide Seiten laufen mit Wrapper. Der einzige Unterschied ist das Feld
-          <code>caseId</code> im Aufrufkontext.
-        </p>
+        <p class="hint" data-i18n="compare.hint"></p>
         <div class="compare" id="compare"></div>
       </section>
     </main>
 
     <footer class="site-footer">
       <p>
-        Simulation ohne Backend und ohne API-Keys. Alle Daten sind erfunden.
-        <a href="https://github.com/kieksme/kieks.me.a2aotel">Repository</a> · MIT-Lizenz
+        <span data-i18n="footer.text"></span>
+        <a href="https://github.com/kieksme/kieks.me.a2aotel" data-i18n="footer.repo"></a> ·
+        <span data-i18n="footer.license"></span>
       </p>
     </footer>
 
     <dialog id="card-dialog" aria-labelledby="card-title">
       <div class="dialog-head">
-        <h2 id="card-title">Agent Card</h2>
-        <button type="button" class="button" id="card-close">Schließen</button>
+        <h2 id="card-title" data-i18n="card.title">Agent Card</h2>
+        <button type="button" class="button" id="card-close" data-i18n="card.close"></button>
       </div>
       <p class="hint" id="card-intro"></p>
-      <pre class="code-scroll shiki card-json" id="card-json" tabindex="0" aria-label="Agent Card als JSON"></pre>
+      <pre class="code-scroll shiki card-json" id="card-json" tabindex="0" data-i18n-aria="card.jsonAria"></pre>
       <p class="hint">
-        Die Karte wird von derselben Funktion erzeugt wie im Repository. Die Adresse ist ein
-        Platzhalter.
-        <button type="button" class="link-button" id="card-code">Code der Agent Card ansehen</button>
+        <span data-i18n="card.note"></span>
+        <span data-i18n="card.contentNote"></span>
+        <button type="button" class="link-button" id="card-code" data-i18n="card.codeLink"></button>
       </p>
     </dialog>
 

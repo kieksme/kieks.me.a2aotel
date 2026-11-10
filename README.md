@@ -133,6 +133,20 @@ Was die Demo zeigt:
 - Die Agent Card jedes Agenten und den Code, mit Markierung der gerade aktiven Stelle.
 - Einen Vergleich derselben Anfrage mit und ohne Fallbezug.
 - Den Trace als JSON-Download im OTLP-Format.
+- Die Oberfläche auf Deutsch, Englisch und Chinesisch.
+
+### Sprachen
+
+Die Demo gibt es auf Deutsch, Englisch und Chinesisch (vereinfacht). Die Sprache wird so gewählt:
+
+1. über die Adresse, zum Beispiel `?lang=en`
+2. sonst die zuletzt selbst gewählte Sprache (im Browser gespeichert)
+3. sonst die erste unterstützte Sprache aus den Browsereinstellungen
+4. sonst Englisch
+
+Oben rechts auf der Seite lässt sich die Sprache jederzeit umstellen. Die Texte liegen in `demo/src/i18n/`. `de.ts` legt die Schlüssel fest, `en.ts` und `zh.ts` müssen dieselben Schlüssel haben, sonst schlägt die Typprüfung fehl. Für eine weitere Sprache eine Datei ergänzen und in `detect.ts` und `index.ts` eintragen.
+
+Nicht übersetzt sind die Kommentare im angezeigten Code und die Inhalte der Agent Card. Beides kommt unverändert aus dem Repository, die Demo weist darauf hin.
 
 Die Markierung im Code hängt an Kommentaren wie `// #region authz-check` in den Quelldateien. Ein Test prüft, dass jede in der Demo verwendete Stelle im Quelltext existiert.
 

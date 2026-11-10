@@ -2,6 +2,13 @@ import { dokumentenagentCard } from "../../src/agents/dokumentenagent.ts";
 import { supportagentCard } from "../../src/agents/supportagent.ts";
 import { createCodeView, renderCode, REPO_URL } from "./code";
 import { createFlow } from "./flow";
+import {
+  applyStaticTexts,
+  mountLanguageSwitch,
+  onLanguageChange,
+  t,
+  type MessageKey,
+} from "./i18n";
 import { createMotion } from "./motion";
 import { toOtlpJson } from "./otlp";
 import {
@@ -46,16 +53,18 @@ type AgentId = keyof typeof AGENT_CARDS;
 // --- Nachrichten zum Anklicken ---------------------------------------------
 
 const messages = $("#messages");
-messages.innerHTML = scenarioList
-  .map(
-    (s) => `
-    <button type="button" class="message" data-scenario="${s.id}" aria-pressed="false">
-      <span class="message-title">${s.title}</span>
-      <span class="message-text">„${s.message}“</span>
-      <span class="message-hint">${s.hint}</span>
+function renderMessages() {
+  messages.innerHTML = scenarioList
+    .map(
+      (s) => `
+    <button type="button" class="message" data-scenario="${s.id}" aria-pressed="${s.id === scenario}">
+      <span class="message-title" data-selected-label="${t("message.selected")}">${t(s.title)}</span>
+      <span class="message-text">${t(s.message)}</span>
+      <span class="message-hint">${t(s.hint)}</span>
     </button>`,
-  )
-  .join("");
+    )
+    .join("");
+}
 messages.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".message");
   if (!button) return;
@@ -66,12 +75,13 @@ messages.addEventListener("click", (event) => {
 // --- Wrapper-Schalter ------------------------------------------------------
 
 const wrapperSwitch = $("#wrapper-switch");
+function renderWrapperState() {
+  wrapperSwitch.setAttribute("aria-checked", String(wrapper));
+  $("#wrapper-state").textContent = t(wrapper ? "wrapper.on" : "wrapper.off");
+}
 wrapperSwitch.addEventListener("click", () => {
   wrapper = !wrapper;
-  wrapperSwitch.setAttribute("aria-checked", String(wrapper));
-  $("#wrapper-state").textContent = wrapper
-    ? "an: Berechtigungsprüfung und Tracing aktiv"
-    : "aus: keine Prüfung, kein Trace";
+  renderWrapperState();
   play();
 });
 
@@ -112,9 +122,6 @@ const stepsList = $("#steps");
 const outcome = $("#outcome");
 const download = $<HTMLButtonElement>("#download");
 
-const NO_TRACE_TEXT =
-  "Kein Trace. Ohne Wrapper schreibt niemand Spans: Der Ablauf oben ist passiert, hier fehlt aber jede Spur.";
-
 async function play() {
   const mine = ++generation;
   finished = false;
@@ -129,13 +136,13 @@ async function play() {
   flow.reset(wrapper);
   flow.setSelection(null);
   renderInspector(null);
-  traceView.render(trace, NO_TRACE_TEXT);
+  traceView.render(trace, t("trace.none"));
   download.disabled = true;
   outcome.innerHTML = "";
   outcome.className = "outcome";
-  $("#auditor").innerHTML = `<p class="muted">Erscheint, sobald der Ablauf durchgelaufen ist.</p>`;
+  $("#auditor").innerHTML = `<p class="muted">${t("auditor.pending")}</p>`;
   stepsList.innerHTML = run.steps
-    .map((step, index) => `<li data-step="${index}" data-state="todo">${step.text}</li>`)
+    .map((step, index) => `<li data-step="${index}" data-state="todo">${t(step.text)}</li>`)
     .join("");
 
   for (const [index, step] of run.steps.entries()) {
@@ -162,7 +169,7 @@ async function play() {
   traceView.revealAll();
   download.disabled = !trace;
   outcome.className = `outcome is-${run.outcome.kind}`;
-  outcome.innerHTML = `<strong>${run.outcome.title}.</strong> ${run.outcome.text}`;
+  outcome.innerHTML = `<strong>${t(run.outcome.title)}</strong> ${t(run.outcome.text)}`;
   renderAuditor();
 }
 
@@ -189,36 +196,18 @@ function selectSpan(key: string | null) {
   renderInspector(span?.flow ?? null);
 }
 
-const NODE_INFO: Record<string, { title: string; text: string }> = {
-  sachbearbeitung: {
-    title: "Sachbearbeitung",
-    text: "Löst den Auftrag aus und gibt Fallbezug und Freigabereferenz mit. Schreibt selbst keine Spans.",
-  },
-  supportagent: {
-    title: "Supportagent",
-    text: "Bearbeitet den Supportfall und holt dafür Dokumente vom Dokumentenagenten.",
-  },
-  dokumentenagent: {
-    title: "Dokumentenagent",
-    text: "Liefert die Dokumente zu einem Fall aus der Dokumenten-API.",
-  },
-  "dokumenten-api": {
-    title: "Dokumenten-API",
-    text: "Datenquelle mit erfundenen Beispieldaten. Wird nur erreicht, wenn der Aufruf erlaubt war.",
-  },
+const NODE_INFO: Record<string, { title: MessageKey; text: MessageKey }> = {
+  sachbearbeitung: { title: "node.sachbearbeitung", text: "info.sachbearbeitung" },
+  supportagent: { title: "svc.supportagent", text: "info.supportagent" },
+  dokumentenagent: { title: "svc.dokumentenagent", text: "info.dokumentenagent" },
+  "dokumenten-api": { title: "svc.api", text: "info.api" },
 };
 
-const EDGE_INFO: Record<string, { title: string; text: string }> = {
-  order: { title: "Auftrag", text: "Die Sachbearbeitung beauftragt den Supportagenten (Stufe 1)." },
-  a2a: {
-    title: "Aufruf Supportagent → Dokumentenagent",
-    text: "A2A-Aufruf mit traceparent-Header (Stufe 2). Im Trace ist das der Client-Span des Supportagenten.",
-  },
-  back: {
-    title: "Rückfrage Dokumentenagent → Supportagent",
-    text: "Wäre die dritte Delegationsstufe. Mit Wrapper wird sie verweigert.",
-  },
-  data: { title: "Datenzugriff", text: "Der Dokumentenagent liest aus der Dokumenten-API." },
+const EDGE_INFO: Record<string, { title: MessageKey; text: MessageKey }> = {
+  order: { title: "info.order.title", text: "info.order" },
+  a2a: { title: "info.a2a.title", text: "info.a2a" },
+  back: { title: "info.back.title", text: "info.back" },
+  data: { title: "info.data.title", text: "info.data" },
 };
 
 function renderInspector(ref: FlowRef | null, linkedCount?: number) {
@@ -234,20 +223,22 @@ function renderInspector(ref: FlowRef | null, linkedCount?: number) {
       ? ""
       : `<p class="muted">${
           linkedCount === 0
-            ? "Dazu gibt es im aktuellen Trace keinen Span."
-            : `${linkedCount} zugehörige${linkedCount === 1 ? "r Span ist" : " Spans sind"} im Trace mit ◆ markiert.`
+            ? t("linked.none")
+            : linkedCount === 1
+              ? t("linked.one")
+              : t("linked.many", { n: linkedCount })
         }</p>`;
   host.innerHTML = `
-    <h3>${info.title}</h3>
-    <p>${info.text}</p>
+    <h3>${t(info.title)}</h3>
+    <p>${t(info.text)}</p>
     ${count}
     ${
       isAgent
         ? `<div class="inspector-actions">
-            <button type="button" class="button" data-action="card">Agent Card anzeigen</button>
-            <button type="button" class="button" data-action="code">Code des Agenten</button>
-            <button type="button" class="button" data-action="wrapper">Wrapper</button>
-            <button type="button" class="button" data-action="policy">Berechtigungsprüfung</button>
+            <button type="button" class="button" data-action="card">${t("action.card")}</button>
+            <button type="button" class="button" data-action="code">${t("action.code")}</button>
+            <button type="button" class="button" data-action="wrapper">${t("action.wrapper")}</button>
+            <button type="button" class="button" data-action="policy">${t("action.policy")}</button>
           </div>`
         : ""
     }`;
@@ -273,10 +264,8 @@ let cardAgent: AgentId = "supportagent";
 function openCard(agent: AgentId) {
   cardAgent = agent;
   const card = AGENT_CARDS[agent];
-  $("#card-title").textContent = `Agent Card: ${card.name}`;
-  $("#card-intro").textContent =
-    `So beschreibt sich der ${card.name} gegenüber anderen Agenten. ` +
-    "Ein echter Agent liefert diese Karte unter /.well-known/agent-card.json aus.";
+  $("#card-title").textContent = t("card.titleFor", { name: card.name });
+  $("#card-intro").textContent = t("card.intro", { name: card.name });
   void renderCode($("#card-json"), JSON.stringify(card, null, 2), "json");
   cardDialog.showModal();
 }
@@ -310,14 +299,14 @@ function renderAuditor() {
   const host = $("#auditor");
   if (!trace) {
     host.innerHTML = `
-      <p><strong>Nichts.</strong> Ohne Wrapper gibt es keinen Span, also auch keine Belege:</p>
+      <p>${t("auditor.none.lead")}</p>
       <ul>
-        <li><strong>Wer?</strong> Nicht zuordenbar. Kein Aufrufer, keine Freigabereferenz.</li>
-        <li><strong>Was?</strong> Unbekannt. Aktion und Ressource wurden nirgends festgehalten.</li>
-        <li><strong>Welche Regel?</strong> Keine. Es wurde nicht geprüft.</li>
-        <li><strong>Wann und in welcher Kette?</strong> Nicht rekonstruierbar.</li>
+        <li>${t("auditor.none.who")}</li>
+        <li>${t("auditor.none.what")}</li>
+        <li>${t("auditor.none.rule")}</li>
+        <li>${t("auditor.none.when")}</li>
       </ul>
-      <p class="muted">Schalte den Wrapper wieder ein und spiele dasselbe Szenario noch einmal ab.</p>`;
+      <p class="muted">${t("auditor.none.retry")}</p>`;
     return;
   }
 
@@ -328,30 +317,44 @@ function renderAuditor() {
   const denied = key.decision === "denied";
   const when = new Date(trace.startedAt + key.start).toISOString();
   const path = chain(key, trace.spans)
-    .map((s) => `${SERVICE_LABEL[s.service]}: ${s.name}`)
+    .map((s) => `${t(SERVICE_LABEL[s.service])}: ${s.name}`)
     .join(" › ");
   const events = trace.spans.flatMap((s) => s.events).filter((e) => e.name !== "authz.decision");
 
+  const code = (value: unknown) => `<code>${value}</code>`;
   host.innerHTML = `
     <dl class="audit-list">
-      <div><dt>Wer</dt><dd><code>${a["app.caller.agent_id"]}</code> ruft <code>${a["app.target.agent_id"]}</code> auf, Freigabe <code>${a["app.approval.ref"]}</code>.</dd></div>
-      <div><dt>Was</dt><dd>Aktion <code>${a["app.authz.action"]}</code> auf <code>${a["app.authz.resource"]}</code>, Fallreferenz <code>${a["app.case.ref"]}</code> (pseudonymisiert).</dd></div>
-      <div><dt>Welche Regel</dt><dd>Regelversion <code>${POLICY_VERSION}</code>, Begründung <code>${a["app.authz.reason"]}</code>.</dd></div>
-      <div><dt>Entscheidung</dt><dd class="${denied ? "is-denied" : "is-allowed"}">${denied ? "✗ verweigert" : "✓ erlaubt"}</dd></div>
-      <div><dt>Wann</dt><dd><code>${when}</code> in Trace <code>${trace.traceId}</code>.</dd></div>
-      <div><dt>Aufrufkette</dt><dd>${path}</dd></div>
+      <div><dt>${t("auditor.who")}</dt><dd>${t("auditor.who.text", {
+        caller: code(a["app.caller.agent_id"]),
+        target: code(a["app.target.agent_id"]),
+        approval: code(a["app.approval.ref"]),
+      })}</dd></div>
+      <div><dt>${t("auditor.what")}</dt><dd>${t("auditor.what.text", {
+        action: code(a["app.authz.action"]),
+        resource: code(a["app.authz.resource"]),
+        caseRef: code(a["app.case.ref"]),
+      })}</dd></div>
+      <div><dt>${t("auditor.rule")}</dt><dd>${t("auditor.rule.text", {
+        version: code(POLICY_VERSION),
+        reason: code(a["app.authz.reason"]),
+      })}</dd></div>
+      <div><dt>${t("auditor.decision")}</dt><dd class="${denied ? "is-denied" : "is-allowed"}">${t(
+        denied ? "decision.denied" : "decision.allowed",
+      )}</dd></div>
+      <div><dt>${t("auditor.when")}</dt><dd>${t("auditor.when.text", {
+        time: code(when),
+        traceId: code(trace.traceId),
+      })}</dd></div>
+      <div><dt>${t("auditor.chain")}</dt><dd>${path}</dd></div>
       ${
         events.length
-          ? `<div><dt>Auffälligkeiten</dt><dd>${events.map((e) => `<code>${e.name}</code>`).join(", ")} als Events im Trace.</dd></div>`
+          ? `<div><dt>${t("auditor.anomalies")}</dt><dd>${t("auditor.anomalies.text", {
+              events: events.map((e) => code(e.name)).join(", "),
+            })}</dd></div>`
           : ""
       }
     </dl>
-    <p class="audit-note">
-      Damit sind drei typische Audit-Anforderungen abgedeckt: <strong>Zuordenbarkeit</strong>
-      (Aufrufer und Freigabe stehen im Span), <strong>Rekonstruierbarkeit</strong> der Aufrufkette
-      (eine Trace-ID, jeder Span kennt seinen Eltern-Span) und die <strong>Regelversion</strong>,
-      nach der entschieden wurde.
-    </p>`;
+    <p class="audit-note">${t("auditor.note")}</p>`;
 }
 
 // --- Vergleich mit und ohne Fallbezug --------------------------------------
@@ -366,13 +369,13 @@ const CONTEXT_WITH = {
 const { caseId: _omitted, ...CONTEXT_WITHOUT } = CONTEXT_WITH;
 
 const compareSides = [
-  { id: "with", title: "Mit Fallbezug", scenario: "allowed" as const, context: CONTEXT_WITH },
-  { id: "without", title: "Ohne Fallbezug", scenario: "no-case" as const, context: CONTEXT_WITHOUT },
+  { id: "with", title: "compare.with" as MessageKey, scenario: "allowed" as const, context: CONTEXT_WITH },
+  { id: "without", title: "compare.without" as MessageKey, scenario: "no-case" as const, context: CONTEXT_WITHOUT },
 ].map((side) => {
   const element = document.createElement("article");
   element.className = "compare-side";
   element.innerHTML = `
-    <h3>${side.title}</h3>
+    <h3 data-i18n="${side.title}">${t(side.title)}</h3>
     <pre class="context-json">${JSON.stringify(side.context, null, 2)}</pre>
     <ol class="steps compare-steps"></ol>
     <div class="outcome" role="status"></div>
@@ -397,7 +400,7 @@ async function playCompare() {
       result.className = "outcome";
       result.innerHTML = "";
       list.innerHTML = sideRun.steps
-        .map((step, index) => `<li data-step="${index}" data-state="todo">${step.text}</li>`)
+        .map((step, index) => `<li data-step="${index}" data-state="todo">${t(step.text)}</li>`)
         .join("");
       for (const [index, step] of sideRun.steps.entries()) {
         const item = list.querySelector<HTMLElement>(`[data-step="${index}"]`)!;
@@ -410,17 +413,28 @@ async function playCompare() {
       }
       side.view.revealAll();
       result.className = `outcome is-${sideRun.outcome.kind}`;
-      result.innerHTML = `<strong>${sideRun.outcome.title}.</strong> ${sideRun.outcome.text}`;
+      result.innerHTML = `<strong>${t(sideRun.outcome.title)}</strong> ${t(sideRun.outcome.text)}`;
     }),
   );
 }
 $("#compare-play").addEventListener("click", () => void playCompare());
 
-// --- Start -----------------------------------------------------------------
+// --- Sprache und Start ----------------------------------------------------
 
-void code.show("wrapper");
-void playCompare();
-void play();
+/** Baut alles neu auf, was Text enthält, und spielt das aktuelle Szenario erneut ab. */
+function renderTexts() {
+  applyStaticTexts();
+  renderMessages();
+  renderWrapperState();
+  flow.remount();
+  void code.remount();
+  void playCompare();
+  void play();
+}
+
+mountLanguageSwitch($<HTMLSelectElement>("#lang-select"));
+onLanguageChange(renderTexts);
+renderTexts();
 
 // Für Neugierige in der Konsole.
 console.info(`Simulation. Das echte Beispiel: ${REPO_URL}`);
