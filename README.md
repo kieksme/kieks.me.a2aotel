@@ -146,6 +146,16 @@ Das Ergebnis liegt in `dist/` und ist eine rein statische Seite mit relativen Pf
 
 Der Workflow `.github/workflows/pages.yml` veröffentlicht die Demo bei jedem Push auf `main` auf GitHub Pages. Dafür muss einmalig in den Repository-Einstellungen unter **Settings → Pages** als Quelle **GitHub Actions** gewählt werden.
 
+### Hosting auf einem eigenen Server
+
+Den Inhalt von `dist/` auf einen beliebigen statischen Webserver kopieren. Die Seite lädt nichts von fremden Servern und braucht keine Cookies. Wer eine Content Security Policy setzt: Skripte kommen nur von der eigenen Adresse (`script-src 'self'`), für die Syntax-Hervorhebung sind Inline-Styles nötig (`style-src 'self' 'unsafe-inline'`).
+
+Zum lokalen Ansehen des Builds:
+
+```bash
+pnpm demo:preview
+```
+
 ## Konfiguration
 
 Alle Einstellungen kommen aus Umgebungsvariablen, siehe `.env.example`.
@@ -209,6 +219,44 @@ demo/              Online-Demo (Vite, statisch)
 - **Keine Authentifizierung.** Der Aufrufer nennt seine Agenten-ID und die Delegationskette selbst. In Produktion müssen beide aus einem geprüften Token kommen, zum Beispiel über eine Agentenidentität wie Microsoft Entra Agent ID. Die Server lauschen deshalb nur auf `127.0.0.1`.
 - **Die Erkennung von Anweisungen in Dokumenten ist eine einfache Heuristik.** Der eigentliche Schutz ist die Matrix: Rechte entstehen nie aus Inhalten.
 - **Ein Prozess.** Beide Agenten laufen im selben Prozess, reden aber über HTTP miteinander. Der Trace-Kontext reist also wirklich im Header.
+
+## Sicherheit
+
+- **Keine Secrets im Repository.** Zugangsdaten kommen nur aus Umgebungsvariablen, `.env` ist in `.gitignore`. Die Foundry-Variante nutzt die Entra-Anmeldung und braucht keinen API-Key.
+- **Nur Beispieldaten.** Fälle, Dokumente und Referenzen sind erfunden.
+- **Abhängigkeiten.** Alle Versionen sind fest gepinnt, die CI führt `pnpm audit` aus, Dependabot meldet Updates für npm-Pakete und GitHub Actions.
+- **Lokaler Betrieb.** Agenten und Jaeger sind nur an `127.0.0.1` gebunden.
+- **Traces sind Betriebsdaten.** In Produktion gelten für sie dieselben Zugriffs- und Aufbewahrungsregeln wie für Logs.
+
+## Prüfhinweise
+
+Vor einer Veröffentlichung oder nach Änderungen lohnt sich dieser Durchgang:
+
+1. `pnpm test`, `pnpm typecheck` und `pnpm demo:build` laufen ohne Fehler.
+2. `pnpm scenario all` zeigt bei `foreign-case`, `third-level` und `no-case` eine Ablehnung, bei `allowed` und `injection` keine.
+3. Mit `docker compose up -d` und `TRACE_EXPORTER=otlp pnpm scenario all` erscheinen die Traces in Jaeger, je Szenario unter einer Trace-ID.
+4. In der Demo lässt sich alles per Tastatur bedienen: Nachrichten, Schalter, Agenten und Pfeile im Ablauf, Spans, Dateireiter, Agent Card.
+5. Mit der Systemeinstellung „Bewegung reduzieren“ läuft die Demo ohne Flug-Animation durch.
+
+Bisher nicht geprüft und deshalb offen:
+
+- Jaeger über Docker Compose. Getestet ist nur der OTLP-Export gegen einen lokalen Empfänger.
+- Die Modellanbieter Ollama, OpenAI-kompatibel und Foundry gegen ein echtes Modell.
+- Die Demo mit einem Screenreader.
+
+### Stand der Doku
+
+Produktnamen, Pakete und Rollen stammen aus der Doku mit Stand 10. November 2026. Sie ändern sich schnell und sollten vor einer Veröffentlichung gegengeprüft werden:
+
+| Thema | Quelle | Übernommen |
+|---|---|---|
+| OpenTelemetry GenAI | [semantic-conventions-genai](https://github.com/open-telemetry/semantic-conventions-genai) | Span-Name `invoke_agent {name}`, `gen_ai.*`-Attribute. Status „Development“. |
+| OpenTelemetry JS | [opentelemetry.io/docs/languages/js](https://opentelemetry.io/docs/languages/js/) | `@opentelemetry/sdk-trace` 3.1.1, Trace-Kontext über `traceparent`. |
+| A2A | [a2a-protocol.org](https://a2a-protocol.org/latest/specification/) | Version 1.0, Agent-Card-Felder, `SendMessage`, Well-Known-Pfad. |
+| anime.js | [animejs.com/documentation](https://animejs.com/documentation/) | Version 4.5.0, `animate` aus `animejs`. |
+| Jaeger | [jaegertracing.io](https://www.jaegertracing.io/docs/latest/getting-started/) | Image `jaegertracing/jaeger:2.23.0`. |
+| Microsoft Foundry | [learn.microsoft.com/azure/foundry](https://learn.microsoft.com/azure/foundry/) | `@azure/ai-projects`, `DefaultAzureCredential`, Rolle „Foundry User“. |
+| Microsoft Entra Agent ID | [learn.microsoft.com/entra/agent-id](https://learn.microsoft.com/entra/agent-id/) | Nur als Einordnung: Agentenidentität für geprüfte Aufrufer in Produktion. |
 
 ## Lizenz
 
