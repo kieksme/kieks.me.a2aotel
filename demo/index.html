@@ -35,10 +35,10 @@
 
     <main id="main">
       <section class="panel controls" aria-labelledby="controls-title">
-        <h2 id="controls-title" data-i18n="controls.title"></h2>
-        <div class="messages" id="messages"></div>
+        <div class="controls-head">
+          <h2 id="controls-title" data-i18n="controls.title"></h2>
 
-        <div class="toolbar">
+          <div class="toolbar">
           <button type="button" class="switch" id="wrapper-switch" role="switch" aria-checked="true">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
             <span>
@@ -54,12 +54,23 @@
 
           <button type="button" class="button" id="replay" data-i18n="replay"></button>
         </div>
+        </div>
+
+        <div class="messages" id="messages"></div>
       </section>
 
       <div class="stage">
         <section class="panel" id="panel-visual" role="tabpanel" aria-labelledby="tab-visual">
           <h2 class="visually-hidden" data-i18n="visual.heading"></h2>
-          <div class="flow-scroll" tabindex="0" role="region" data-i18n-aria="flow.scrollAria"><div id="flow"></div></div>
+          <div class="flow-layout">
+            <div class="flow-scroll" tabindex="0" role="region" data-i18n-aria="flow.scrollAria">
+              <div id="flow"></div>
+            </div>
+            <section class="wire" id="wire" aria-labelledby="wire-title">
+              <h3 id="wire-title" data-i18n="wire.title"></h3>
+              <div id="wire-body" aria-live="polite"></div>
+            </section>
+          </div>
           <p class="hint scroll-hint" data-i18n="flow.scrollHint"></p>
           <p class="hint" data-i18n="flow.hint"></p>
           <div class="inspector" id="inspector" aria-live="polite"></div>
@@ -70,11 +81,14 @@
           <div id="code"></div>
         </section>
 
-        <section class="panel steps-panel" aria-labelledby="steps-title">
-          <h2 id="steps-title" data-i18n="steps.title"></h2>
-          <ol class="steps" id="steps" aria-live="polite"></ol>
+        <details class="panel steps-panel" id="steps-panel" open>
+          <summary>
+            <h2 id="steps-title" data-i18n="steps.title"></h2>
+            <span class="steps-status" id="steps-status"></span>
+          </summary>
+          <ol class="steps" id="steps" aria-live="polite" aria-labelledby="steps-title"></ol>
           <div class="outcome" id="outcome" role="status"></div>
-        </section>
+        </details>
       </div>
 
       <section class="panel" aria-labelledby="trace-title">
@@ -83,6 +97,7 @@
           <button type="button" class="button" id="download" data-i18n="trace.download"></button>
         </div>
         <p class="hint" data-i18n="trace.hint"></p>
+        <p class="hint" data-i18n="wire.note"></p>
         <div id="trace"></div>
       </section>
 

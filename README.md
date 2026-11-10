@@ -131,6 +131,7 @@ Was die Demo zeigt:
 - Die Verknüpfung in beide Richtungen: Ein Klick auf einen Span hebt den Teil im Ablauf hervor, ein Klick im Ablauf markiert die Spans.
 - Einen Schalter, der den Wrapper ausschaltet. Dann geht der unzulässige Aufruf durch und im Trace fehlt jede Spur.
 - Die Agent Card jedes Agenten und den Code, mit Markierung der gerade aktiven Stelle.
+- Die Nachricht, die gerade unterwegs ist: Anfrage mit `traceparent` und Aufrufkontext, Antwort und den Prompt ans Modell. Über das Briefsymbol an einem Schritt lässt sie sich später wieder aufrufen.
 - Einen Vergleich derselben Anfrage mit und ohne Fallbezug.
 - Den Trace als JSON-Download im OTLP-Format.
 - Die Oberfläche auf Deutsch, Englisch und Chinesisch.
