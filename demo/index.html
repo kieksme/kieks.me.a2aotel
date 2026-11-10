@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A2A und OpenTelemetry: Rechte verhindern, Tracing belegt</title>
+    <meta
+      name="description"
+      content="Simulation: Zwei KI-Agenten rufen sich auf. Ein Wrapper prüft die Berechtigung und schreibt jeden Aufruf in einen Trace."
+    />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Zum Inhalt springen</a>
+
+    <header class="site-header">
+      <p class="eyebrow">kieks.me · Beispielprojekt</p>
+      <h1>Rechte verhindern, Tracing belegt</h1>
+      <p class="lead">
+        Zwei KI-Agenten rufen sich gegenseitig auf. Ein Wrapper prüft jeden Aufruf und schreibt die
+        Entscheidung in einen OpenTelemetry-Trace.
+      </p>
+    </header>
+
+    <aside class="sim-banner" role="note" aria-label="Hinweis zur Simulation">
+      <span class="sim-badge">Simulation</span>
+      <p>
+        Hier laufen <strong>keine echten Agenten</strong>. Abläufe und Traces sind gemockt, es gibt
+        kein Backend und kein Modell. Der gezeigte Code ist echt und stammt aus dem Repository.
+        <a href="https://github.com/kieksme/kieks.me.a2aotel">Das lauffähige Beispiel auf GitHub</a>
+      </p>
+    </aside>
+
+    <main id="main">
+      <section class="panel controls" aria-labelledby="controls-title">
+        <h2 id="controls-title">1. Nachricht an den Supportagenten schicken</h2>
+        <div class="messages" id="messages"></div>
+
+        <div class="toolbar">
+          <button type="button" class="switch" id="wrapper-switch" role="switch" aria-checked="true">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span>
+              <strong>Wrapper</strong>
+              <span class="switch-state" id="wrapper-state">an: Berechtigungsprüfung und Tracing aktiv</span>
+            </span>
+          </button>
+
+          <div class="view-tabs" role="tablist" aria-label="Ansicht">
+            <button type="button" role="tab" id="tab-visual" aria-controls="panel-visual" aria-selected="true">
+              Visualisierung
+            </button>
+            <button type="button" role="tab" id="tab-code" aria-controls="panel-code" aria-selected="false" tabindex="-1">
+              Code
+            </button>
+          </div>
+
+          <button type="button" class="button" id="replay">Nochmal abspielen</button>
+        </div>
+      </section>
+
+      <div class="stage">
+        <section class="panel" id="panel-visual" role="tabpanel" aria-labelledby="tab-visual">
+          <h2 class="visually-hidden">Ablauf als Grafik</h2>
+          <div class="flow-scroll" tabindex="0" role="region" aria-label="Ablaufgrafik, seitlich scrollbar"><div id="flow"></div></div>
+          <p class="hint scroll-hint">Die Grafik lässt sich seitlich scrollen.</p>
+          <p class="hint">
+            Agenten, Datenquelle und Pfeile sind anklickbar. Die zugehörigen Spans werden im Trace
+            markiert.
+          </p>
+          <div class="inspector" id="inspector" aria-live="polite"></div>
+        </section>
+
+        <section class="panel" id="panel-code" role="tabpanel" aria-labelledby="tab-code" hidden>
+          <h2 class="visually-hidden">Code</h2>
+          <div id="code"></div>
+        </section>
+
+        <section class="panel steps-panel" aria-labelledby="steps-title">
+          <h2 id="steps-title">Ablauf</h2>
+          <ol class="steps" id="steps" aria-live="polite"></ol>
+          <div class="outcome" id="outcome" role="status"></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="trace-title">
+        <div class="panel-head">
+          <h2 id="trace-title">2. Trace ansehen <span class="mock-tag">gemockt</span></h2>
+          <button type="button" class="button" id="download">Trace als JSON herunterladen</button>
+        </div>
+        <p class="hint">
+          Ein Klick auf einen Span klappt die Details auf und hebt den zugehörigen Teil im Ablauf
+          hervor. Mit den Pfeiltasten geht es von Span zu Span.
+        </p>
+        <div id="trace"></div>
+      </section>
+
+      <section class="panel auditor" aria-labelledby="auditor-title">
+        <h2 id="auditor-title">3. Was ein Auditor daraus abliest</h2>
+        <div id="auditor"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="compare-title">
+        <div class="panel-head">
+          <h2 id="compare-title">Vergleich: dieselbe Anfrage mit und ohne Fallbezug</h2>
+          <button type="button" class="button" id="compare-play">Vergleich abspielen</button>
+        </div>
+        <p class="hint">
+          Beide Seiten laufen mit Wrapper. Der einzige Unterschied ist das Feld
+          <code>caseId</code> im Aufrufkontext.
+        </p>
+        <div class="compare" id="compare"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        Simulation ohne Backend und ohne API-Keys. Alle Daten sind erfunden.
+        <a href="https://github.com/kieksme/kieks.me.a2aotel">Repository</a> · MIT-Lizenz
+      </p>
+    </footer>
+
+    <dialog id="card-dialog" aria-labelledby="card-title">
+      <div class="dialog-head">
+        <h2 id="card-title">Agent Card</h2>
+        <button type="button" class="button" id="card-close">Schließen</button>
+      </div>
+      <p class="hint" id="card-intro"></p>
+      <pre class="code-scroll shiki card-json" id="card-json" tabindex="0" aria-label="Agent Card als JSON"></pre>
+      <p class="hint">
+        Die Karte wird von derselben Funktion erzeugt wie im Repository. Die Adresse ist ein
+        Platzhalter.
+        <button type="button" class="link-button" id="card-code">Code der Agent Card ansehen</button>
+      </p>
+    </dialog>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

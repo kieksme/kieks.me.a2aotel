@@ -1,0 +1,30 @@
+{
+  "version": "2026-11-09.1",
+  "maxDelegationDepth": 2,
+  "rules": [
+    {
+      "caller": "sachbearbeitung",
+      "target": "supportagent",
+      "action": "cases.assess",
+      "resourceType": "support-case"
+    },
+    {
+      "caller": "supportagent",
+      "target": "dokumentenagent",
+      "action": "documents.read",
+      "resourceType": "case-documents"
+    },
+    {
+      "caller": "supportagent",
+      "target": "dokumentenagent",
+      "action": "documents.verify",
+      "resourceType": "case-documents"
+    },
+    {
+      "caller": "dokumentenagent",
+      "target": "supportagent",
+      "action": "cases.clarify",
+      "resourceType": "support-case"
+    }
+  ]
+}
