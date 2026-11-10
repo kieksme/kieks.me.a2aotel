@@ -21,5 +21,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm demo:build
       - name: Abhängigkeiten prüfen
         run: pnpm audit --audit-level=high

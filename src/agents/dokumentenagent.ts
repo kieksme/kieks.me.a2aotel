@@ -58,6 +58,7 @@ export function createDokumentenagent(deps: {
   return async (request, invocation) => {
     const { caseId } = request.resource;
 
+    // #region read-documents
     // Zugriff auf die Datenquelle. Der Kontext sorgt dafür, dass der Span
     // der Dokumenten-API im selben Trace landet.
     const found = await deps.documents.list(
@@ -65,7 +66,9 @@ export function createDokumentenagent(deps: {
       invocation.context,
       deps.pseudonymize(caseId),
     );
+    // #endregion read-documents
 
+    // #region flag-untrusted
     // Dokumente sind Daten, keine Anweisungen. Auffällige Inhalte werden
     // markiert und als Event im Span festgehalten (nur die Dokument-ID).
     const documents = found.map((document) => {
@@ -77,7 +80,9 @@ export function createDokumentenagent(deps: {
       }
       return { ...document, untrustedInstruction };
     });
+    // #endregion flag-untrusted
 
+    // #region clarify
     if (request.action === "documents.verify") {
       // Rückfrage an den Supportagenten. Das wäre die dritte
       // Delegationsstufe, der Wrapper des Supportagenten lehnt sie ab.
@@ -87,6 +92,7 @@ export function createDokumentenagent(deps: {
       });
       return { documents, clarification };
     }
+    // #endregion clarify
 
     return { documents };
   };

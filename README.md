@@ -8,6 +8,11 @@ Das Muster ist plattformunabhängig. Microsoft Foundry ist als optionale Variant
 
 > Alle Daten sind erfunden. Es gibt keine echten Kunden und keine personenbezogenen Daten.
 
+Das Repository hat zwei Teile:
+
+- **Teil A, das echte Beispiel** (`src/`): lauffähige Agenten zum Selbstausprobieren.
+- **Teil B, die Online-Demo** (`demo/`): eine statische Seite, die denselben Ablauf als Simulation zeigt. Sie braucht kein Backend, kein Modell und keine API-Keys.
+
 ## Das Beispiel
 
 Ein **Supportagent** bearbeitet einen Supportfall. Die Dokumente zum Fall holt er sich vom **Dokumentenagenten**, der dafür auf die **Dokumenten-API** zugreift.
@@ -111,6 +116,36 @@ Danach http://localhost:16686 öffnen und den Dienst `supportagent` wählen. Ver
 docker compose down
 ```
 
+## Online-Demo
+
+Die Demo ist eine **Simulation**. Es laufen keine Agenten, Abläufe und Traces sind gemockt. Der angezeigte Code ist dagegen echt: Die Seite bindet die Dateien aus `src/` direkt ein, es gibt keine zweite Kopie.
+
+```bash
+pnpm demo
+```
+
+Was die Demo zeigt:
+
+- Vorgefertigte Nachrichten zum Anklicken, der Ablauf wird animiert (anime.js).
+- Eine Trace-Ansicht im Stil von Jaeger mit aufklappbaren Spans.
+- Die Verknüpfung in beide Richtungen: Ein Klick auf einen Span hebt den Teil im Ablauf hervor, ein Klick im Ablauf markiert die Spans.
+- Einen Schalter, der den Wrapper ausschaltet. Dann geht der unzulässige Aufruf durch und im Trace fehlt jede Spur.
+- Die Agent Card jedes Agenten und den Code, mit Markierung der gerade aktiven Stelle.
+- Einen Vergleich derselben Anfrage mit und ohne Fallbezug.
+- Den Trace als JSON-Download im OTLP-Format.
+
+Die Markierung im Code hängt an Kommentaren wie `// #region authz-check` in den Quelldateien. Ein Test prüft, dass jede in der Demo verwendete Stelle im Quelltext existiert.
+
+### Bauen und veröffentlichen
+
+```bash
+pnpm demo:build
+```
+
+Das Ergebnis liegt in `dist/` und ist eine rein statische Seite mit relativen Pfaden. Sie läuft auf GitHub Pages genauso wie auf einem eigenen Webserver.
+
+Der Workflow `.github/workflows/pages.yml` veröffentlicht die Demo bei jedem Push auf `main` auf GitHub Pages. Dafür muss einmalig in den Repository-Einstellungen unter **Settings → Pages** als Quelle **GitHub Actions** gewählt werden.
+
 ## Konfiguration
 
 Alle Einstellungen kommen aus Umgebungsvariablen, siehe `.env.example`.
@@ -165,6 +200,7 @@ src/
 ├── system.ts      startet und verdrahtet alles
 └── cli.ts         pnpm scenario <name>
 test/              Vitest
+demo/              Online-Demo (Vite, statisch)
 ```
 
 ## Grenzen des Beispiels
