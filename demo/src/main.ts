@@ -41,7 +41,7 @@ let finished = false;
 
 // --- Bausteine -------------------------------------------------------------
 
-const flow = createFlow($("#flow"), selectFlow);
+const flow = createFlow($("#flow"), selectFlow, () => void play());
 const traceView = createTraceView($("#trace"), { idPrefix: "main", onSelect: selectSpan });
 const code = createCodeView($("#code"));
 

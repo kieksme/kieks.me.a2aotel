@@ -439,15 +439,9 @@ main {
 .scroll-hint {
   display: none;
 }
-@media (max-width: 700px) {
-  .scroll-hint {
-    display: block;
-  }
-}
 #flow svg {
   display: block;
   width: 100%;
-  min-width: 620px;
   height: auto;
   font-family: var(--sans);
 }
@@ -519,6 +513,12 @@ main {
 .step-wire[aria-pressed="true"] {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* Schmale Bildschirme: hohe Grafik, mittig und nicht breiter als nötig. */
+#flow svg.is-tall {
+  max-width: 400px;
+  margin-inline: auto;
 }
 
 .node,
