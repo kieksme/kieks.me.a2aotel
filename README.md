@@ -135,6 +135,7 @@ Was die Demo zeigt:
 - Einen Vergleich derselben Anfrage mit und ohne Fallbezug.
 - Den Trace als JSON-Download im OTLP-Format.
 - Die Oberfläche auf Deutsch, Englisch und Chinesisch.
+- Auf schmalen Bildschirmen ordnet sich die Ablaufgrafik untereinander an, sodass man auf dem Handy nicht seitlich scrollen muss.
 
 ### Sprachen
 

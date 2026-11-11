@@ -12,13 +12,6 @@ interface Box {
   wrapped: boolean;
 }
 
-const NODES: Record<NodeId, Box> = {
-  sachbearbeitung: { x: 16, y: 62, w: 124, h: 46, title: "node.sachbearbeitung", wrapped: false },
-  supportagent: { x: 204, y: 40, w: 186, h: 90, title: "svc.supportagent", subtitle: "node.agent", wrapped: true },
-  dokumentenagent: { x: 550, y: 40, w: 194, h: 90, title: "svc.dokumentenagent", subtitle: "node.agent", wrapped: true },
-  "dokumenten-api": { x: 567, y: 204, w: 160, h: 64, title: "svc.api", subtitle: "node.datasource", wrapped: false },
-};
-
 interface Line {
   from: [number, number];
   to: [number, number];
@@ -29,12 +22,54 @@ interface Line {
   name: MessageKey;
 }
 
-const EDGES: Record<EdgeId, Line> = {
-  order: { from: [140, 85], to: [196, 85], labelAt: [168, 76], name: "edge.order.aria" },
-  a2a: { from: [398, 68], to: [542, 68], fixedLabel: "A2A SendMessage", labelAt: [470, 58], name: "edge.a2a.aria" },
-  back: { from: [542, 104], to: [398, 104], label: "edge.back", labelAt: [470, 124], name: "edge.back.aria" },
-  data: { from: [647, 138], to: [647, 204], label: "edge.data", labelAt: [657, 172], name: "edge.data.aria" },
+interface Layout {
+  viewBox: string;
+  nodes: Record<NodeId, Box>;
+  edges: Record<EdgeId, Line>;
+}
+
+/** Breite Anordnung: die Agenten stehen nebeneinander. */
+const WIDE: Layout = {
+  viewBox: "0 0 760 284",
+  nodes: {
+    sachbearbeitung: { x: 16, y: 62, w: 124, h: 46, title: "node.sachbearbeitung", wrapped: false },
+    supportagent: { x: 204, y: 40, w: 186, h: 90, title: "svc.supportagent", subtitle: "node.agent", wrapped: true },
+    dokumentenagent: { x: 550, y: 40, w: 194, h: 90, title: "svc.dokumentenagent", subtitle: "node.agent", wrapped: true },
+    "dokumenten-api": { x: 567, y: 204, w: 160, h: 64, title: "svc.api", subtitle: "node.datasource", wrapped: false },
+  },
+  edges: {
+    order: { from: [140, 85], to: [196, 85], labelAt: [168, 76], name: "edge.order.aria" },
+    a2a: { from: [398, 68], to: [542, 68], fixedLabel: "A2A SendMessage", labelAt: [470, 58], name: "edge.a2a.aria" },
+    back: { from: [542, 104], to: [398, 104], label: "edge.back", labelAt: [470, 124], name: "edge.back.aria" },
+    data: { from: [647, 138], to: [647, 204], label: "edge.data", labelAt: [657, 172], name: "edge.data.aria" },
+  },
 };
+
+/**
+ * Hohe Anordnung für schmale Bildschirme: alles steht untereinander.
+ * So passt die Grafik aufs Handy, ohne dass man seitlich scrollen muss.
+ */
+const TALL: Layout = {
+  viewBox: "0 0 340 484",
+  nodes: {
+    sachbearbeitung: { x: 108, y: 12, w: 124, h: 42, title: "node.sachbearbeitung", wrapped: false },
+    supportagent: { x: 62, y: 104, w: 216, h: 80, title: "svc.supportagent", subtitle: "node.agent", wrapped: true },
+    dokumentenagent: { x: 62, y: 276, w: 216, h: 80, title: "svc.dokumentenagent", subtitle: "node.agent", wrapped: true },
+    "dokumenten-api": { x: 90, y: 412, w: 160, h: 64, title: "svc.api", subtitle: "node.datasource", wrapped: false },
+  },
+  edges: {
+    order: { from: [170, 54], to: [170, 96], labelAt: [246, 88], name: "edge.order.aria" },
+    a2a: { from: [146, 192], to: [146, 268], fixedLabel: "A2A SendMessage", labelAt: [74, 236], name: "edge.a2a.aria" },
+    back: { from: [218, 268], to: [218, 192], label: "edge.back", labelAt: [276, 226], name: "edge.back.aria" },
+    data: { from: [170, 364], to: [170, 412], label: "edge.data", labelAt: [180, 386], name: "edge.data.aria" },
+  },
+};
+
+const NODE_IDS = Object.keys(WIDE.nodes) as NodeId[];
+const EDGE_IDS = Object.keys(WIDE.edges) as EdgeId[];
+
+/** Ab dieser Breite abwärts gilt die hohe Anordnung. */
+const narrow = window.matchMedia("(max-width: 700px)");
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -73,7 +108,13 @@ function edgeMarkup(id: EdgeId, e: Line): string {
 
 const sameRef = (a: FlowRef | null, b: FlowRef) => a?.type === b.type && a.id === b.id;
 
-export function createFlow(host: HTMLElement, onSelect: (ref: FlowRef) => void) {
+export function createFlow(
+  host: HTMLElement,
+  onSelect: (ref: FlowRef) => void,
+  /** Wird aufgerufen, wenn die Grafik wegen der Bildschirmbreite neu aufgebaut wurde. */
+  onLayoutChange?: () => void,
+) {
+  let layout: Layout = narrow.matches ? TALL : WIDE;
   let svg!: SVGSVGElement;
   let token!: SVGGElement;
   const motion = createMotion();
@@ -81,14 +122,14 @@ export function createFlow(host: HTMLElement, onSelect: (ref: FlowRef) => void) 
   /** Baut die Grafik auf. Wird beim Sprachwechsel erneut aufgerufen. */
   function mount() {
     host.innerHTML = `
-    <svg viewBox="0 0 760 284" role="group" aria-label="${t("flow.aria")}">
+    <svg viewBox="${layout.viewBox}" class="${layout === TALL ? "is-tall" : "is-wide"}" role="group" aria-label="${t("flow.aria")}">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/>
         </marker>
       </defs>
-      ${(Object.keys(EDGES) as EdgeId[]).map((id) => edgeMarkup(id, EDGES[id])).join("")}
-      ${(Object.keys(NODES) as NodeId[]).map((id) => nodeMarkup(id, NODES[id])).join("")}
+      ${EDGE_IDS.map((id) => edgeMarkup(id, layout.edges[id])).join("")}
+      ${NODE_IDS.map((id) => nodeMarkup(id, layout.nodes[id])).join("")}
       <g class="token" aria-hidden="true">
         <rect x="-13" y="-9" width="26" height="18" rx="3"/>
         <path d="M-13 -9 L0 2 L13 -9"/>
@@ -115,6 +156,14 @@ export function createFlow(host: HTMLElement, onSelect: (ref: FlowRef) => void) 
   }
   mount();
 
+  // Dreht man das Gerät oder ändert die Fensterbreite, wechselt die Anordnung.
+  narrow.addEventListener("change", () => {
+    motion.cancelAll();
+    layout = narrow.matches ? TALL : WIDE;
+    mount();
+    onLayoutChange?.();
+  });
+
   const nodeEl = (id: NodeId) => svg.querySelector<SVGGElement>(`[data-node="${id}"]`)!;
   const edgeEl = (id: EdgeId) => svg.querySelector<SVGGElement>(`[data-edge="${id}"]`)!;
   const refEl = (ref: FlowRef) => (ref.type === "node" ? nodeEl(ref.id) : edgeEl(ref.id));
@@ -138,7 +187,7 @@ export function createFlow(host: HTMLElement, onSelect: (ref: FlowRef) => void) 
   }
 
   async function fly(edge: EdgeId, reverse: boolean, tone: NonNullable<StepDef["tone"]>) {
-    const { from, to } = EDGES[edge];
+    const { from, to } = layout.edges[edge];
     const [a, b] = reverse ? [to, from] : [from, to];
     token.setAttribute("class", `token is-visible tone-${tone}`);
     token.querySelector("text")!.textContent = tone === "denied" ? "✗" : tone === "leak" ? "!" : "";
@@ -225,13 +274,13 @@ export function createFlow(host: HTMLElement, onSelect: (ref: FlowRef) => void) 
     motion.cancelAll();
     svg.classList.toggle("no-wrapper", !wrapper);
     token.setAttribute("class", "token");
-    (Object.keys(NODES) as NodeId[]).forEach((id) => {
+    NODE_IDS.forEach((id) => {
       setStatus(id, "");
       setBadge(id, null);
       nodeEl(id).classList.remove("is-busy");
       nodeEl(id).querySelectorAll<SVGElement>("rect").forEach((r) => r.style.removeProperty("stroke-width"));
     });
-    (Object.keys(EDGES) as EdgeId[]).forEach((id) => {
+    EDGE_IDS.forEach((id) => {
       const el = edgeEl(id);
       el.classList.remove("is-denied", "is-leak", "is-active");
       el.querySelector(".edge-state")!.textContent = "";
